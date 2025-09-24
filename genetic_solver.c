@@ -4,22 +4,25 @@
 #include <time.h>
 #include <math.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #define N 20
-#define POP_SIZE 100
-#define GEN 15000
+#define POP_SIZE 50
+#define GEN 10000
 #define MU_TAX_BASE 0.05
-#define TOURNAMENT_SIZE 100
+#define TOURNAMENT_SIZE 50
 
 #define EVAL_MATRICES 100
 #define EVAL_LOOPS 100
-#define REGEN_INTERVAL 10
+#define REGEN_INTERVAL 1
 
 typedef int mati[N][N];
 typedef double matd[N][N];
+
+typedef struct {
+    double global_best_fit;
+    double generation_best_fit;
+    mati genes; 
+} HistoryEntry;
+
 
 static int initial_positions[N][N] = {
     {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -45,57 +48,56 @@ static int initial_positions[N][N] = {
 };
 
 static int min_matrix[N][N] = {
-    {80,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {60,80,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,60,80,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,60,80,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,60,80,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,60,80,60,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,60,80,60,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,60,80,60,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,60,80,60,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,60,80,60,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,60,80,60,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,60,80,60,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,60,80,60,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,60,80,60,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,60,80,60,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,80,60,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,80,60,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,80,60,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,80,60},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,80}
+    {100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100}
 };
 
 static int max_matrix[N][N] = {
-    {100,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {80,100,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,80,100,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,80,100,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,80,100,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,80,100,80,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,80,100,80,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,80,100,80,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,80,100,80,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,80,100,80,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,80,100,80,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,80,100,80,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,80,100,80,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,80,100,80,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,80,100,80,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,80,100,80,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,80,100,80,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,80,100,80,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,80,100,80},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,80,100}
+    {100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100}
 };
 
 static double b_vector[N] = {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100};
 
-static double history_global[GEN];
-static double history_generation[GEN];
+// MODIFICAÇÃO 2: Substitui os arrays de histórico por um único array da nova struct.
+static HistoryEntry history[GEN];
 
-/* --- linear solver fallback (Gaussian elim with partial pivot) --- */
 int solve_linear_fallback(const double A_in[N][N], const double b_in[N], double x_out[N]) {
     double aug[N][N+1];
     for (int i=0;i<N;++i) {
@@ -123,15 +125,12 @@ int solve_linear_fallback(const double A_in[N][N], const double b_in[N], double 
 }
 
 int solve_linear_lapack_with_cache(const double A_in[N][N], const double b_in[N], double x_out[N]) {
-    /* placeholder para LAPACK; usa fallback */
     return solve_linear_fallback(A_in, b_in, x_out);
 }
 
-/* util */
 static inline double drand_01(void){ return rand() / (double)RAND_MAX; }
 static inline void copy_positions(const int src[N][N], int dst[N][N]) { memcpy(dst, src, N*N*sizeof(int)); }
 
-/* gera tester entre min_matrix e max_matrix (múltiplos de 10) */
 void generate_tester(double tester[N][N]) {
     for (int i=0;i<N;++i) for (int j=0;j<=i;++j) {
         int minv = min_matrix[i][j];
@@ -145,7 +144,6 @@ void generate_tester(double tester[N][N]) {
     }
 }
 
-/* calcula fitness: soma de 1 / ||x||_1 para soluções estáveis */
 double fitness(const int positions[N][N], double testers[][N][N], int num_testers, int loops) {
     double final_point = 0.0;
     for (int f=0; f<loops; ++f) {
@@ -159,10 +157,9 @@ double fitness(const int positions[N][N], double testers[][N][N], int num_tester
         if (total_abs == 0.0) continue;
         final_point += 1.0 / total_abs;
     }
-    return final_point;
+    return final_point*10;
 }
 
-/* randomiza matriz (simétrica) */
 void randomize(int p[N][N]) {
     for (int i=0;i<N;++i) for (int j=0;j<=i;++j) {
         int v = rand() & 1;
@@ -172,14 +169,24 @@ void randomize(int p[N][N]) {
 
 void mutate(const int src[N][N], int dst[N][N], double mu) {
     copy_positions(src, dst);
-    for (int i=0;i<N;++i) for (int j=i+1;j<N;++j)
-        if (drand_01() < mu) dst[i][j] = dst[j][i] = 1 - dst[i][j];
+    for (int i=0; i<N; ++i) {
+        for (int j=i+1; j<N; ++j) {
+            if (max_matrix[i][j] > 0 && drand_01() < mu) {
+                dst[i][j] = dst[j][i] = 1 - dst[i][j];
+            }
+        }
+    }
 }
 
 void cross(const int p1[N][N], const int p2[N][N], int dst[N][N]) {
     copy_positions(p1, dst);
-    for (int i=0;i<N;++i) for (int j=i+1;j<N;++j)
-        if (drand_01() < 0.3) dst[i][j] = dst[j][i] = p2[i][j];
+    for (int i=0; i<N; ++i) {
+        for (int j=i+1; j<N; ++j) {
+            if (max_matrix[i][j] > 0 && drand_01() < 0.3) {
+                dst[i][j] = dst[j][i] = p2[i][j];
+            }
+        }
+    }
 }
 
 int select_parent(int pop, const double fitnesses[POP_SIZE], int exclude) {
@@ -245,8 +252,10 @@ int main(void) {
             if (gens_no_improve % 50 == 0) mu += 0.025;
         }
 
-        history_global[gen] = best_fit_global;
-        history_generation[gen] = best_fit_generation;
+        // MODIFICAÇÃO 3: Salva todos os dados no histórico da geração atual.
+        history[gen].global_best_fit = best_fit_global;
+        history[gen].generation_best_fit = best_fit_generation;
+        copy_positions(population[curr_best_idx], history[gen].genes);
 
         /* reprodução */
         int cnt = 0, attempts = 0;
@@ -292,10 +301,34 @@ int main(void) {
     }
     printf("Tempo total de execução: %.3f segundos\n", elapsed_time);
 
-    FILE *f = fopen("history.csv","w");
-    if (!f) { perror("Erro ao abrir arquivo"); return 1; }
-    for (int gen=0; gen<GEN; ++gen) fprintf(f, "%f,%f\n", history_global[gen], history_generation[gen]);
+    // MODIFICAÇÃO 4: Escreve o novo histórico avançado em um arquivo CSV.
+    FILE *f = fopen("history_advanced.csv","w");
+    if (!f) {
+        perror("Erro ao abrir arquivo");
+        return 1;
+    }
+    
+    // Escreve o cabeçalho do CSV
+    fprintf(f, "Generation,GlobalBestFitness,GenerationBestFitness");
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            fprintf(f, ",Gene_%d_%d", i, j);
+        }
+    }
+    fprintf(f, "\n");
+
+    // Escreve os dados de cada geração
+    for (int gen = 0; gen < GEN; ++gen) {
+        fprintf(f, "%d,%f,%f", gen, history[gen].global_best_fit, history[gen].generation_best_fit);
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                fprintf(f, ",%d", history[gen].genes[i][j]);
+            }
+        }
+        fprintf(f, "\n");
+    }
     fclose(f);
+    printf("\nHistórico avançado salvo em 'history_advanced.csv'\n");
 
     return 0;
 }
