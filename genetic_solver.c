@@ -6,13 +6,13 @@
 
 #define N 20
 #define POP_SIZE 50
-#define GEN 10000
+#define GEN 5000
 #define MU_TAX_BASE 0.05
-#define TOURNAMENT_SIZE 50
+#define TOURNAMENT_SIZE 10
 
 #define EVAL_MATRICES 100
 #define EVAL_LOOPS 100
-#define REGEN_INTERVAL 1
+#define REGEN_INTERVAL 500
 
 typedef int mati[N][N];
 typedef double matd[N][N];
@@ -48,26 +48,26 @@ static int initial_positions[N][N] = {
 };
 
 static int min_matrix[N][N] = {
-    {100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100,60},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,100}
+    {100,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,100,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,100,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,100,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,100,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,100,30,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,100,30,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,100,30,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,100,30,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,100,30,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,100,30,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,100,30,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,100,30,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,100,30,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,30,100,30,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,100,30,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,100,30,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,100,30,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,100,30},
+    {30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,100}
 };
 
 static int max_matrix[N][N] = {
@@ -163,6 +163,11 @@ double fitness(const int positions[N][N], double testers[][N][N], int num_tester
 void randomize(int p[N][N]) {
     for (int i=0;i<N;++i) for (int j=0;j<=i;++j) {
         int v = rand() & 1;
+        if(max_matrix[i][j] == 0){
+            v = 0;
+        }else if(min_matrix[i][j] == max_matrix[i][j]){
+            v = 1;
+        }
         p[i][j] = p[j][i] = v;
     }
 }
@@ -171,7 +176,11 @@ void mutate(const int src[N][N], int dst[N][N], double mu) {
     copy_positions(src, dst);
     for (int i=0; i<N; ++i) {
         for (int j=i+1; j<N; ++j) {
-            if (max_matrix[i][j] > 0 && drand_01() < mu) {
+            if(max_matrix[i][j] == 0){
+                dst[i][j] = dst[j][i] = 0;
+            }else if(min_matrix[i][j] == max_matrix[i][j]){
+                dst[i][j] = dst[j][i] = 1;
+            }else if (drand_01() < mu) {
                 dst[i][j] = dst[j][i] = 1 - dst[i][j];
             }
         }
@@ -182,7 +191,7 @@ void cross(const int p1[N][N], const int p2[N][N], int dst[N][N]) {
     copy_positions(p1, dst);
     for (int i=0; i<N; ++i) {
         for (int j=i+1; j<N; ++j) {
-            if (max_matrix[i][j] > 0 && drand_01() < 0.3) {
+            if (drand_01() < 0.3) {
                 dst[i][j] = dst[j][i] = p2[i][j];
             }
         }
@@ -214,7 +223,6 @@ int main(void) {
 
     for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
 
-    /* população inicial */
     copy_positions(initial_positions, population[0]);
     for (int i=1;i<POP_SIZE;++i) randomize(population[i]);
 
@@ -233,11 +241,9 @@ int main(void) {
             printf("[geracao %d] Regeneradas %d evaluation_matrices\n", gen, EVAL_MATRICES);
         }
 
-        /* avalia população */
         #pragma omp parallel for if(POP_SIZE>1)
         for (int i=0;i<POP_SIZE;++i) fitnesses[i] = fitness(population[i], evaluation_matrices, EVAL_MATRICES, EVAL_LOOPS);
 
-        /* melhor da geração */
         int curr_best_idx = 0;
         for (int i=1;i<POP_SIZE;++i) if (fitnesses[i] > fitnesses[curr_best_idx]) curr_best_idx = i;
         double best_fit_generation = fitnesses[curr_best_idx];
@@ -252,12 +258,10 @@ int main(void) {
             if (gens_no_improve % 50 == 0) mu += 0.025;
         }
 
-        // MODIFICAÇÃO 3: Salva todos os dados no histórico da geração atual.
         history[gen].global_best_fit = best_fit_global;
         history[gen].generation_best_fit = best_fit_generation;
         copy_positions(population[curr_best_idx], history[gen].genes);
 
-        /* reprodução */
         int cnt = 0, attempts = 0;
         while (cnt < POP_SIZE && attempts < 10 * POP_SIZE) {
             int p1 = select_parent(POP_SIZE, fitnesses, POP_SIZE + 1);
@@ -279,7 +283,7 @@ int main(void) {
             attempts++;
         }
 
-        while (cnt < POP_SIZE) { /* completa com melhor global */
+        while (cnt < POP_SIZE) {
             copy_positions(best_positions, new_pop[cnt++]);
         }
 
@@ -301,14 +305,12 @@ int main(void) {
     }
     printf("Tempo total de execução: %.3f segundos\n", elapsed_time);
 
-    // MODIFICAÇÃO 4: Escreve o novo histórico avançado em um arquivo CSV.
     FILE *f = fopen("history_advanced.csv","w");
     if (!f) {
         perror("Erro ao abrir arquivo");
         return 1;
     }
     
-    // Escreve o cabeçalho do CSV
     fprintf(f, "Generation,GlobalBestFitness,GenerationBestFitness");
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
