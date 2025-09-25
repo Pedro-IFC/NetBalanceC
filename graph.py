@@ -65,8 +65,8 @@ def draw_graph(genes_list):
     adj_matrix = np.array(genes_list).reshape(matrix_dim, matrix_dim)
     G = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
 
-    node_colors = plt.cm.get_cmap('tab10', matrix_dim)
-    node_color_list = [node_colors(i) for i in range(matrix_dim)]
+    cmap = plt.get_cmap('tab10')
+    node_color_list = [cmap(i % cmap.N) for i in range(matrix_dim)]
     
     pos = nx.circular_layout(G)
     
@@ -93,15 +93,15 @@ def draw_graph(genes_list):
             out_edges = list(G.out_edges(highlight_node))
             if out_edges:
                 nx.draw_networkx_edges(G, pos, edgelist=out_edges, ax=ax_graph, 
-                                       edge_color='red', width=2, arrows=True)
+                                    edge_color='red', width=2, arrows=True)
             
             in_edges = list(G.in_edges(highlight_node))
             if in_edges:
                 nx.draw_networkx_edges(G, pos, edgelist=in_edges, ax=ax_graph, 
-                                       edge_color='green', width=2, arrows=True)
+                                    edge_color='green', width=2, arrows=True)
 
             nx.draw_networkx_nodes(G, pos, ax=ax_graph, nodelist=[highlight_node],
-                                   node_color='yellow', node_size=1000)
+                                node_color='yellow', node_size=1000)
 
         fig_graph.canvas.draw_idle()
 
@@ -196,8 +196,8 @@ title_label.pack(pady=10)
 
 if geracoes:
     slider = tk.Scale(frame_genes, from_=0, to=len(geracoes)-1, orient=tk.HORIZONTAL,
-                      command=on_slider_change, length=400,
-                      label="Nº da Geração")
+                    command=on_slider_change, length=400,
+                    label="Nº da Geração")
     slider.pack(pady=5)
     
     # Campo de entrada manual e botão
