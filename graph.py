@@ -1,236 +1,263 @@
+import tkinter as tk
+from tkinter import ttk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import tkinter as tk
 import csv
-import math
 import numpy as np
-import networkx as nx
+import random
 
-def media_movel(dados, janela=10):
-    """Calcula a média móvel de uma lista de dados."""
-    if len(dados) < janela:
-        return dados
-    return [sum(dados[i:i+janela]) / janela for i in range(len(dados) - janela + 1)]
+# Constantes
+N = 20
+B_VALUE = 100.0
 
-# --- Carregar os dados ---
-geracoes = []
-fitness_global = []
-fitness_geracional = []
-genes_history = [] 
-
-try:
-    with open("history_advanced.csv", newline='', encoding="utf-8") as csvfile:
-        reader = csv.reader(csvfile)
-        header = next(reader, None) 
-        for row in reader:
-            geracoes.append(int(row[0]))
-            fitness_global.append(float(row[1]))
-            fitness_geracional.append(float(row[2]))
-            genes = [int(g) for g in row[3:]]
-            genes_history.append(genes)
-except FileNotFoundError:
-    print("Erro: O arquivo 'history_advanced.csv' não foi encontrado.")
-    exit()
-
-janela_media_movel = 1
-fitness_geracional_suave = media_movel(fitness_geracional, janela_media_movel)
-geracoes_suave = geracoes[:len(fitness_geracional_suave)]
-
-# --- Calcular a dimensão da matriz ---
-if genes_history:
-    num_genes = len(genes_history[0])
-    matrix_dim = int(math.sqrt(num_genes))
-    if matrix_dim * matrix_dim != num_genes:
-        print(f"Atenção: O número de genes ({num_genes}) não é um quadrado perfeito. A visualização da matriz pode não ser ideal.")
-else:
-    matrix_dim = 0
-
-# --- Funções para a interface ---
-
-# Bloco de código para o grafo
-# ----------------------------------------------------
-def draw_graph(genes_list):
+def generate_tester(min_matrix, max_matrix):
     """
-    Desenha um grafo a partir da lista de genes.
-    A lista de genes é tratada como uma matriz de adjacência.
+    Gera uma matriz de teste com base nos valores mínimos e máximos.
+    Esta função simula a lógica do código C original.
     """
-    for widget in frame_graph.winfo_children():
-        widget.destroy()
+    tester = [[0.0] * N for _ in range(N)]
+    for i in range(N):
+        for j in range(i, N): # Itera na triangular superior
+            min_val = int(min_matrix[i][j])
+            max_val = int(max_matrix[i][j])
+            v = 0.0
+            if max_val > 0 and max_val >= min_val:
+                steps = (max_val - min_val) // 10 + 1
+                v = float(min_val + 10 * random.randint(0, steps - 1))
+            tester[i][j] = v
+            tester[j][i] = v # Garante simetria
+    return tester
 
-    if not genes_list or matrix_dim == 0:
-        label = tk.Label(frame_graph, text="Dados de grafo indisponíveis.")
-        label.pack(expand=True)
-        return
+def load_history_data(filepath="history_advanced.csv"):
+    generations, global_fitness, generational_fitness, genes_history = [], [], [], []
+    try:
+        with open(filepath, newline='', encoding="utf-8") as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader, None)  # Pular cabeçalho
+            for row in reader:
+                generations.append(int(row[0]))
+                global_fitness.append(float(row[1]))
+                generational_fitness.append(float(row[2]))
+                genes_history.append([int(g) for g in row[3:]])
+    except FileNotFoundError:
+        print(f"Erro: O arquivo '{filepath}' não foi encontrado.")
+    return generations, global_fitness, generational_fitness, genes_history
+
+def load_tester_matrices(filepath="tester.csv"):
+    min_matrix = [[0.0] * N for _ in range(N)]
+    max_matrix = [[0.0] * N for _ in range(N)]
+    try:
+        with open(filepath, newline='', encoding="utf-8") as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader, None)
+            for row in reader:
+                i, j, min_val, max_val = map(float, row)
+                min_matrix[int(i)][int(j)] = min_val
+                min_matrix[int(j)][int(i)] = min_val # Garante simetria
+                max_matrix[int(i)][int(j)] = max_val
+                max_matrix[int(j)][int(i)] = max_val # Garante simetria
+    except FileNotFoundError:
+        print(f"Erro: O arquivo '{filepath}' não foi encontrado.")
+        return None, None
+    return min_matrix, max_matrix
+
+class GeneticAlgoAnalyzer(tk.Tk):
+    def __init__(self, generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix):
+        super().__init__()
+        self.title("Análise de Algoritmo Genético")
+        self.geometry("1400x900")
+
+        self.generations = generations
+        self.global_fitness = global_fitness
+        self.generational_fitness = generational_fitness
+        self.genes_history = genes_history
+        self.min_matrix = min_matrix
+        self.max_matrix = max_matrix
+        self.b_vector = [B_VALUE] * N
+
+        # Calcula a solução inicial (Geração 0) uma única vez
+        self.initial_solution_x = self._calculate_solution(0)
+
+        # --- Estrutura de Rolagem ---
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill=tk.BOTH, expand=1)
+        self.canvas = tk.Canvas(main_frame)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.bind('<Configure>', lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         
-    adj_matrix = np.array(genes_list).reshape(matrix_dim, matrix_dim)
-    G = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
+        # --- Conteúdo da Aplicação ---
+        self._configure_grid()
+        self._create_widgets()
+        self._initial_display_update()
 
-    cmap = plt.get_cmap('tab10')
-    node_color_list = [cmap(i % cmap.N) for i in range(matrix_dim)]
+    def _on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    def _configure_grid(self):
+        self.scrollable_frame.grid_columnconfigure(0, weight=1, minsize=700)
+        self.scrollable_frame.grid_columnconfigure(1, weight=1, minsize=700)
+
+    def _create_widgets(self):
+        self._create_fitness_panel()
+        self._create_genes_panel()
+        self._create_solution_panel()
+
+    def _create_fitness_panel(self):
+        frame = ttk.Frame(self.scrollable_frame, padding="10")
+        frame.grid(row=0, column=0, sticky="nsew")
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(self.generations, self.global_fitness, label="Melhor Fitness Global", color='blue')
+        ax.plot(self.generations, self.generational_fitness, label="Fitness Geracional", color='red', alpha=0.7)
+        ax.set_xlabel("Geração")
+        ax.set_ylabel("Fitness")
+        ax.set_title("Evolução do Fitness")
+        ax.legend()
+        ax.grid(True)
+        plt.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, master=frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    def _create_genes_panel(self):
+        frame = ttk.Frame(self.scrollable_frame, padding="10")
+        frame.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        ttk.Label(frame, text="Visualização dos Genes", font=("Arial", 16)).pack(pady=10)
+        controls_frame = ttk.Frame(frame)
+        controls_frame.pack(pady=5, fill=tk.X)
+        self.slider = tk.Scale(controls_frame, from_=0, to=len(self.generations)-1, orient=tk.HORIZONTAL,
+                               command=self.on_slider_change, label="Selecione a Geração")
+        self.slider.pack(pady=5, fill=tk.X, expand=True)
+        entry_frame = ttk.Frame(controls_frame)
+        entry_frame.pack(pady=5)
+        ttk.Label(entry_frame, text="Ou digite o Nº:").pack(side=tk.LEFT)
+        self.entry_gen = ttk.Entry(entry_frame, width=10)
+        self.entry_gen.pack(side=tk.LEFT, padx=5)
+        ttk.Button(entry_frame, text="Atualizar", command=self.on_manual_entry).pack(side=tk.LEFT)
+        self.genes_text = tk.Label(frame, text="", justify=tk.LEFT, font=("Courier", 11))
+        self.genes_text.pack(pady=20, fill=tk.BOTH, expand=True)
+
+    def _create_solution_panel(self):
+        frame = ttk.Frame(self.scrollable_frame, padding="10")
+        frame.grid(row=1, column=0, sticky="nsew")
+        frame.grid_rowconfigure(1, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        ttk.Label(frame, text="Comparação da Solução do Vetor X", font=("Arial", 16)).grid(row=0, column=0, pady=10, sticky="ew")
+
+        columns = ('node', 'gen0', 'gen_curr', 'abs_diff', 'perc_diff')
+        self.solution_tree = ttk.Treeview(frame, columns=columns, show='headings')
+        
+        self.solution_tree.heading('node', text='Nó (i)')
+        self.solution_tree.heading('gen0', text='Solução Geração 0')
+        self.solution_tree.heading('gen_curr', text='Solução Geração Atual')
+        self.solution_tree.heading('abs_diff', text='Dif. Absoluta')
+        self.solution_tree.heading('perc_diff', text='Dif. %')
+        
+        self.solution_tree.column('node', width=80, anchor='center')
+        self.solution_tree.column('gen0', width=150, anchor='e')
+        self.solution_tree.column('gen_curr', width=160, anchor='e')
+        self.solution_tree.column('abs_diff', width=140, anchor='e')
+        self.solution_tree.column('perc_diff', width=120, anchor='e')
+
+        tree_scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.solution_tree.yview)
+        self.solution_tree.configure(yscrollcommand=tree_scrollbar.set)
+        
+        self.solution_tree.grid(row=1, column=0, sticky='nsew')
+        tree_scrollbar.grid(row=1, column=1, sticky='ns')
+
+    def _initial_display_update(self):
+        if self.generations:
+            initial_idx = len(self.generations) - 1
+            self.slider.set(initial_idx)
+            self.entry_gen.insert(0, str(self.generations[initial_idx]))
+            self.update_displays(initial_idx)
     
-    pos = nx.circular_layout(G)
-    
-    fig_graph, ax_graph = plt.subplots(figsize=(6, 4), dpi=100)
-    
-    def on_hover(event):
-        if event.inaxes != ax_graph:
+    def _calculate_solution(self, generation_index):
+        if not self.min_matrix or generation_index >= len(self.genes_history):
+            return None
+        genes_flat = self.genes_history[generation_index]
+        positions = np.array([genes_flat[i:i+N] for i in range(0, len(genes_flat), N)])
+        random.seed(0) 
+        tester = np.array(generate_tester(self.min_matrix, self.max_matrix))
+        A = positions * tester
+        try:
+            return np.linalg.solve(A, np.array(self.b_vector))
+        except np.linalg.LinAlgError:
+            return None
+
+    def format_genes(self, genes_list):
+        return "\n".join(" ".join(map(str, genes_list[i:i+N])) for i in range(0, len(genes_list), N))
+
+    def update_displays(self, generation_index):
+        self.update_genes_display(generation_index)
+        self.update_solution_display(generation_index)
+        self.scrollable_frame.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def update_genes_display(self, generation_index):
+        genes_str = self.format_genes(self.genes_history[generation_index])
+        self.genes_text.config(text=genes_str)
+
+    def update_solution_display(self, generation_index):
+        for item in self.solution_tree.get_children():
+            self.solution_tree.delete(item)
+        
+        current_solution_x = self._calculate_solution(generation_index)
+        
+        if self.initial_solution_x is None or current_solution_x is None:
+            msg = "Solução inicial não pôde ser calculada." if self.initial_solution_x is None else "Solução atual não pôde ser calculada (matriz singular)."
+            self.solution_tree.insert("", "end", values=("Erro", msg, "", "", ""))
             return
 
-        ax_graph.clear()
-        
-        nx.draw_networkx_nodes(G, pos, ax=ax_graph, node_color=node_color_list, node_size=700)
-        nx.draw_networkx_labels(G, pos, ax=ax_graph)
-
-        highlight_node = None
-        min_dist = float('inf')
-        for node, (x, y) in pos.items():
-            dist = math.sqrt((x - event.xdata)**2 + (y - event.ydata)**2)
-            if dist < min_dist:
-                min_dist = dist
-                highlight_node = node
-        
-        if min_dist < 0.1:
-            out_edges = list(G.out_edges(highlight_node))
-            if out_edges:
-                nx.draw_networkx_edges(G, pos, edgelist=out_edges, ax=ax_graph, 
-                                    edge_color='red', width=2, arrows=True)
+        for i in range(N):
+            initial_val = self.initial_solution_x[i]
+            current_val = current_solution_x[i]
+            abs_diff = abs(current_val - initial_val)
             
-            in_edges = list(G.in_edges(highlight_node))
-            if in_edges:
-                nx.draw_networkx_edges(G, pos, edgelist=in_edges, ax=ax_graph, 
-                                    edge_color='green', width=2, arrows=True)
+            if initial_val != 0:
+                perc_diff = ((current_val - initial_val) / abs(initial_val)) * 100
+                perc_str = f"{perc_diff:+.2f}%"
+            else:
+                perc_str = "N/A"
 
-            nx.draw_networkx_nodes(G, pos, ax=ax_graph, nodelist=[highlight_node],
-                                node_color='yellow', node_size=1000)
+            self.solution_tree.insert("", "end", values=(
+                f"x[{i}]",
+                f"{initial_val:9.4f}",
+                f"{current_val:9.4f}",
+                f"{abs_diff:9.4f}",
+                perc_str
+            ))
 
-        fig_graph.canvas.draw_idle()
+    def on_slider_change(self, val):
+        generation_idx = int(val)
+        self.update_displays(generation_idx)
+        self.entry_gen.delete(0, tk.END)
+        self.entry_gen.insert(0, str(self.generations[generation_idx]))
 
-    fig_graph.canvas.mpl_connect('motion_notify_event', on_hover)
+    def on_manual_entry(self):
+        try:
+            gen_num = int(self.entry_gen.get())
+            if gen_num in self.generations:
+                gen_idx = self.generations.index(gen_num)
+                self.slider.set(gen_idx)
+                # O slider já chama on_slider_change, que chama update_displays
+        except ValueError:
+            print("Entrada manual inválida.")
 
-    ax_graph.set_title(f'Grafo da Geração {geracoes[slider.get()]}')
-    nx.draw(G, pos, ax=ax_graph, with_labels=True, node_color=node_color_list,
-            edge_color='gray', node_size=700)
-    plt.tight_layout()
+def main():
+    generations, global_fitness, generational_fitness, genes_history = load_history_data()
+    min_matrix, max_matrix = load_tester_matrices()
+    if not generations:
+        print("Não foi possível carregar os dados do histórico. Encerrando.")
+        return
+    app = GeneticAlgoAnalyzer(generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix)
+    app.mainloop()
 
-    canvas_graph = FigureCanvasTkAgg(fig_graph, master=frame_graph)
-    canvas_widget_graph = canvas_graph.get_tk_widget()
-    canvas_widget_graph.pack(fill=tk.BOTH, expand=True)
-    canvas_graph.draw()
-# ----------------------------------------------------
-
-def update_genes_display(generation_index):
-    """
-    Atualiza a exibição dos genes em formato de matriz e desenha o grafo.
-    """
-    if generation_index < len(geracoes):
-        genes = genes_history[generation_index]
-        matrix_str = ""
-        for i in range(0, len(genes), matrix_dim):
-            row = genes[i:i+matrix_dim]
-            matrix_str += ' '.join(map(str, row)) + '\n'
-        
-        genes_text.config(text=f"Melhor Indivíduo da Geração {geracoes[generation_index]}:\n\n{matrix_str}")
-        draw_graph(genes)
-    else:
-        genes_text.config(text="Geração não encontrada.")
-        for widget in frame_graph.winfo_children():
-            widget.destroy()
-
-def on_slider_change(val):
-    """Lida com a mudança da barra de rolagem."""
-    gen_index = int(float(val))
-    update_genes_display(gen_index)
-    entry_gen.delete(0, tk.END)
-    entry_gen.insert(0, str(geracoes[gen_index]))
-
-def on_manual_entry():
-    """Lida com a entrada manual do número da geração."""
-    try:
-        gen_number = int(entry_gen.get())
-        if gen_number in geracoes:
-            gen_index = geracoes.index(gen_number)
-            slider.set(gen_index)  # Isso irá acionar on_slider_change automaticamente
-        else:
-            tk.messagebox.showwarning("Geração Inválida", "O número de geração inserido não existe.")
-    except ValueError:
-        tk.messagebox.showerror("Erro de Entrada", "Por favor, insira um número inteiro válido.")
-
-# --- Configuração da interface Tkinter ---
-root = tk.Tk()
-root.title("Visualizador de Histórico Genético")
-root.attributes('-fullscreen', True)
-
-root.bind('<Escape>', lambda event: root.attributes('-fullscreen', False))
-
-root.grid_columnconfigure(0, weight=1)
-root.grid_columnconfigure(1, weight=1)
-root.grid_rowconfigure(0, weight=1)
-root.grid_rowconfigure(1, weight=1)
-
-# Painel Superior Esquerdo - Gráfico de Fitness
-frame_top_left = tk.Frame(root, bg="white")
-frame_top_left.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-
-fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
-ax.set_title('Histórico de Fitness')
-ax.set_xlabel('Geração')
-ax.set_ylabel('Fitness')
-ax.grid(True)
-ax.plot(geracoes, fitness_global, color='dodgerblue', linewidth=2.5, marker='o', markersize=4,
-        label='Melhor Fitness Global Acumulado')
-ax.plot(geracoes_suave, fitness_geracional_suave, color='tomato', linewidth=2,
-        label=f'Melhor Fitness Geracional (Média Móvel {janela_media_movel})')
-ax.legend()
-plt.tight_layout()
-
-canvas = FigureCanvasTkAgg(fig, master=frame_top_left)
-canvas_widget = canvas.get_tk_widget()
-canvas_widget.pack(fill=tk.BOTH, expand=True)
-
-# Painel Superior Direito - Seleção de Geração e Genes
-frame_genes = tk.Frame(root)
-frame_genes.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-
-title_label = tk.Label(frame_genes, text="Selecione uma Geração", font=("Arial", 16))
-title_label.pack(pady=10)
-
-if geracoes:
-    slider = tk.Scale(frame_genes, from_=0, to=len(geracoes)-1, orient=tk.HORIZONTAL,
-                    command=on_slider_change, length=400,
-                    label="Nº da Geração")
-    slider.pack(pady=5)
-    
-    # Campo de entrada manual e botão
-    frame_entry = tk.Frame(frame_genes)
-    frame_entry.pack(pady=5)
-    tk.Label(frame_entry, text="Ou digite o Nº:").pack(side=tk.LEFT)
-    entry_gen = tk.Entry(frame_entry, width=10)
-    entry_gen.pack(side=tk.LEFT, padx=5)
-    btn_update = tk.Button(frame_entry, text="Atualizar", command=on_manual_entry)
-    btn_update.pack(side=tk.LEFT)
-
-    slider.set(len(geracoes)-1)
-    entry_gen.insert(0, str(geracoes[len(geracoes)-1]))
-
-else:
-    no_data_label = tk.Label(frame_genes, text="Nenhum dado de geração encontrado.", font=("Arial", 12))
-    no_data_label.pack(pady=10)
-    slider = None # Para evitar erros se não houver dados
-    entry_gen = None
-
-genes_text = tk.Label(frame_genes, text="", justify=tk.LEFT, font=("Courier", 10))
-genes_text.pack(pady=20, fill=tk.BOTH, expand=True)
-
-# Painel Inferior Esquerdo
-frame_bottom_left = tk.Frame(root, bg="lightgray")
-frame_bottom_left.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
-tk.Label(frame_bottom_left, text="Painel Inferior Esquerdo", bg="lightgray").pack(expand=True)
-
-# Painel Inferior Direito - Grafo (local ajustado)
-frame_graph = tk.Frame(root, bg="white")
-frame_graph.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
-
-if geracoes:
-    update_genes_display(len(geracoes) - 1)
-
-root.mainloop()
+if __name__ == '__main__':
+    main()

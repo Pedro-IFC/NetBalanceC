@@ -6,12 +6,12 @@
 
 #define N 20
 #define POP_SIZE 50
-#define GEN 5000
+#define GEN 1000
 #define MU_TAX_BASE 0.05
 #define TOURNAMENT_SIZE 10
 
-#define EVAL_MATRICES 100
-#define EVAL_LOOPS 100
+#define EVAL_MATRICES 10
+#define EVAL_LOOPS 10
 #define REGEN_INTERVAL 500
 
 typedef int mati[N][N];
@@ -20,9 +20,8 @@ typedef double matd[N][N];
 typedef struct {
     double global_best_fit;
     double generation_best_fit;
-    mati genes; 
+    mati genes;
 } HistoryEntry;
-
 
 static int initial_positions[N][N] = {
     {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -95,8 +94,25 @@ static int max_matrix[N][N] = {
 
 static double b_vector[N] = {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100};
 
-// MODIFICAÇÃO 2: Substitui os arrays de histórico por um único array da nova struct.
 static HistoryEntry history[GEN];
+
+void save_tester_config() {
+    FILE *f = fopen("tester.csv", "w");
+    if (!f) {
+        perror("Erro ao abrir tester.csv");
+        return;
+    }
+
+    fprintf(f, "i,j,min_value,max_value\n");
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            fprintf(f, "%d,%d,%d,%d\n", i, j, min_matrix[i][j], max_matrix[i][j]);
+        }
+    }
+    fclose(f);
+}
+
 
 int solve_linear_fallback(const double A_in[N][N], const double b_in[N], double x_out[N]) {
     double aug[N][N+1];
@@ -222,6 +238,10 @@ int main(void) {
     int gens_no_improve = 0;
 
     for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
+    
+    // MODIFICAÇÃO: Salva a configuração inicial dos testers
+    save_tester_config();
+    printf("Configuração inicial dos testers salva em 'tester.csv'\n");
 
     copy_positions(initial_positions, population[0]);
     for (int i=1;i<POP_SIZE;++i) randomize(population[i]);
@@ -239,6 +259,10 @@ int main(void) {
         if (gen > 0 && (gen % REGEN_INTERVAL) == 0) {
             for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
             printf("[geracao %d] Regeneradas %d evaluation_matrices\n", gen, EVAL_MATRICES);
+            
+            // MODIFICAÇÃO: Salva a configuração dos testers novamente
+            save_tester_config();
+            printf("[geracao %d] Configuração dos testers salva novamente em 'tester.csv'\n", gen);
         }
 
         #pragma omp parallel for if(POP_SIZE>1)
@@ -311,6 +335,7 @@ int main(void) {
         return 1;
     }
     
+    // Escreve o cabeçalho
     fprintf(f, "Generation,GlobalBestFitness,GenerationBestFitness");
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -319,9 +344,18 @@ int main(void) {
     }
     fprintf(f, "\n");
 
-    // Escreve os dados de cada geração
+    // Escreve o estado inicial (Geração 0)
+    fprintf(f, "0,%f,%f", fit0, fit0);
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            fprintf(f, ",%d", initial_positions[i][j]);
+        }
+    }
+    fprintf(f, "\n");
+
+    // Escreve os dados de cada geração da simulação (a partir da Geração 1)
     for (int gen = 0; gen < GEN; ++gen) {
-        fprintf(f, "%d,%f,%f", gen, history[gen].global_best_fit, history[gen].generation_best_fit);
+        fprintf(f, "%d,%f,%f", gen + 1, history[gen].global_best_fit, history[gen].generation_best_fit);
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < N; ++j) {
                 fprintf(f, ",%d", history[gen].genes[i][j]);
