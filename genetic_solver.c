@@ -173,7 +173,7 @@ double fitness(const int positions[N][N], double testers[][N][N], int num_tester
         if (total_abs == 0.0) continue;
         final_point += 1.0 / total_abs;
     }
-    return final_point*10;
+    return final_point/EVAL_MATRICES;
 }
 
 void randomize(int p[N][N]) {
