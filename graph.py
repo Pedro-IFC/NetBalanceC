@@ -6,9 +6,7 @@ import csv
 import numpy as np
 import random
 
-# Constantes
 N = 20
-B_VALUE = 100.0
 
 def generate_tester(min_matrix, max_matrix):
     """
@@ -61,8 +59,27 @@ def load_tester_matrices(filepath="tester.csv"):
         return None, None
     return min_matrix, max_matrix
 
+def load_b_vector(filepath="b_vector.csv"):
+    """
+    Carrega o vetor B de um arquivo CSV.
+    Espera-se que o CSV tenha uma coluna chamada 'value'.
+    """
+    b_vector = []
+    try:
+        with open(filepath, newline='', encoding="utf-8") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                b_vector.append(float(row['value']))
+    except FileNotFoundError:
+        print(f"Erro: O arquivo '{filepath}' não foi encontrado.")
+        return []
+    except (ValueError, KeyError) as e:
+        print(f"Erro ao processar o arquivo '{filepath}': {e}")
+        return []
+    return b_vector
+
 class GeneticAlgoAnalyzer(tk.Tk):
-    def __init__(self, generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix):
+    def __init__(self, generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix, b_vector):
         super().__init__()
         self.title("Análise de Algoritmo Genético")
         self.state('zoomed')
@@ -73,7 +90,7 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self.genes_history = genes_history
         self.min_matrix = min_matrix
         self.max_matrix = max_matrix
-        self.b_vector = [B_VALUE] * N
+        self.b_vector = b_vector
         self.initial_solution_x = self._calculate_solution(0)
         self.active_nodes = [tk.BooleanVar(value=True) for _ in range(N)]
 
@@ -88,8 +105,6 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self.scrollable_frame = ttk.Frame(self.canvas)
         self.canvas_window_id = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
 
-        # MODIFICAÇÃO: Vincula a função _on_canvas_configure ao evento de redimensionamento do canvas
-        # Isso garante que a área rolável sempre ocupe 100% da largura
         self.canvas.bind('<Configure>', self._on_canvas_configure)
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         
@@ -97,12 +112,9 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self._create_widgets()
         self._initial_display_update()
 
-    # MODIFICAÇÃO: Nova função para lidar com o redimensionamento do canvas
     def _on_canvas_configure(self, event):
         canvas_width = event.width
-        # Ajusta a largura do frame interno para ser igual à largura do canvas
         self.canvas.itemconfig(self.canvas_window_id, width=canvas_width)
-        # Atualiza a região de rolagem
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_mousewheel(self, event):
@@ -116,6 +128,7 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self._create_genes_panel()
         self._create_solution_panel()
         self._create_simulation_panel()
+        self._create_graph_panel()
 
     def _create_fitness_panel(self):
         frame = ttk.LabelFrame(self.scrollable_frame, text="Evolução do Fitness", padding="10")
@@ -140,7 +153,7 @@ class GeneticAlgoAnalyzer(tk.Tk):
         controls_frame.pack(pady=5, fill=tk.X)
         
         self.slider = tk.Scale(controls_frame, from_=0, to=len(self.generations)-1, orient=tk.HORIZONTAL,
-                               command=self.on_slider_change, label="Selecione a Geração")
+                                command=self.on_slider_change, label="Selecione a Geração")
         self.slider.pack(pady=5, fill=tk.X, expand=True)
         
         entry_frame = ttk.Frame(controls_frame)
@@ -150,7 +163,6 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self.entry_gen.pack(side=tk.LEFT, padx=5)
         ttk.Button(entry_frame, text="Atualizar", command=self.on_manual_entry).pack(side=tk.LEFT)
         
-        # MODIFICAÇÃO: justify alterado para tk.CENTER para centralizar o texto dos genes
         self.genes_text = tk.Label(frame, text="", justify=tk.CENTER, font=("Courier", 11))
         self.genes_text.pack(pady=20, fill=tk.BOTH, expand=True)
 
@@ -169,7 +181,6 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self.solution_tree.heading('abs_diff', text='Dif. Absoluta')
         self.solution_tree.heading('perc_diff', text='Dif. %')
         
-        # MODIFICAÇÃO: anchor de todas as colunas alterado para 'center' para centralizar os dados
         self.solution_tree.column('node', width=80, anchor='center')
         self.solution_tree.column('gen0', width=150, anchor='center')
         self.solution_tree.column('gen_curr', width=160, anchor='center')
@@ -186,30 +197,41 @@ class GeneticAlgoAnalyzer(tk.Tk):
         frame = ttk.LabelFrame(self.scrollable_frame, text="Simulação de Desligamento de Nós", padding="10")
         frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)
 
-        # MODIFICAÇÃO: Adicionado um frame wrapper para centralizar o frame dos checkboxes
         center_wrapper_frame = ttk.Frame(frame)
         center_wrapper_frame.pack(pady=5, fill="x")
 
-        # Frame interno que conterá os checkboxes e será centralizado
         checkbox_frame = ttk.Frame(center_wrapper_frame)
-        checkbox_frame.pack() # pack() sem argumentos centraliza o widget
+        checkbox_frame.pack()
         
         cols = 10 
         for i in range(N):
             var = self.active_nodes[i]
-            # Os checkboxes são adicionados ao frame interno
             cb = ttk.Checkbutton(checkbox_frame, text=str(i), variable=var, command=self.update_simulation_fitness)
             cb.grid(row=i // cols, column=i % cols, padx=5, pady=2, sticky="w")
         
         self.simulation_fitness_label = ttk.Label(frame, text="Fitness Simulado: -", font=("Arial", 14, "bold"))
         self.simulation_fitness_label.pack(pady=15)
 
+    def _create_graph_panel(self):
+        frame = ttk.LabelFrame(self.scrollable_frame, text="Visualização do Grafo de Conexões", padding="10")
+        frame.grid(row=4, column=0, sticky="nsew", padx=10, pady=5)
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        self.graph_canvas = tk.Canvas(frame, bg='white', height=550)
+        self.graph_canvas.grid(row=0, column=0, sticky="nsew")
+
+        self.node_coords = {}
+        self.node_items = {}
+        self.edge_items = {}
+        self.adjacency_matrix = []
+
     def _initial_display_update(self):
         if self.generations:
             initial_idx = len(self.generations) - 1
             self.slider.set(initial_idx)
             self.entry_gen.insert(0, str(self.generations[initial_idx]))
-            self.update_displays(initial_idx)
+            self.after(100, lambda: self.update_displays(initial_idx))
     
     def calculate_fitness_py(self, A_matrix, b_vector):
         try:
@@ -240,10 +262,14 @@ class GeneticAlgoAnalyzer(tk.Tk):
                 A_sim[i, :] = 0.0
                 A_sim[:, i] = 0.0
                 b_sim[i] = 0.0
-                A_sim[i][i] = 1
+                A_sim[i][i] = 1 # Evita singularidade de forma simples
         
         fitness_score = self.calculate_fitness_py(A_sim, b_sim)
         self.simulation_fitness_label.config(text=f"Fitness Simulado: {fitness_score:.4f}")
+
+        # --- MODIFICAÇÃO ---
+        # Atualiza as cores do grafo para refletir os nós ativos/inativos
+        self._update_graph_node_colors()
 
     def _calculate_solution(self, generation_index):
         if not self.min_matrix or generation_index >= len(self.genes_history):
@@ -265,6 +291,7 @@ class GeneticAlgoAnalyzer(tk.Tk):
         self.update_genes_display(generation_index)
         self.update_solution_display(generation_index)
         self.update_simulation_panel()
+        self.update_graph_display(generation_index)
         self.scrollable_frame.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
@@ -303,6 +330,87 @@ class GeneticAlgoAnalyzer(tk.Tk):
                 f"x[{i}]", f"{initial_val:9.4f}", f"{current_val:9.4f}",
                 f"{abs_diff:9.4f}", perc_str
             ))
+            
+    def update_graph_display(self, generation_index):
+        self.graph_canvas.delete("all")
+        
+        genes_flat = self.genes_history[generation_index]
+        self.adjacency_matrix = [genes_flat[i:i+N] for i in range(0, len(genes_flat), N)]
+
+        canvas_width = self.graph_canvas.winfo_width()
+        canvas_height = self.graph_canvas.winfo_height()
+        center_x, center_y = canvas_width / 2, canvas_height / 2
+        radius = min(center_x, center_y) * 0.85
+
+        self.node_coords.clear()
+        self.node_items.clear()
+        self.edge_items.clear()
+
+        for i in range(N):
+            angle = 2 * np.pi * i / N - np.pi / 2
+            x = center_x + radius * np.cos(angle)
+            y = center_y + radius * np.sin(angle)
+            self.node_coords[i] = (x, y)
+
+        for i in range(N):
+            for j in range(i + 1, N):
+                if self.adjacency_matrix[i][j] == 1:
+                    x1, y1 = self.node_coords[i]
+                    x2, y2 = self.node_coords[j]
+                    edge = self.graph_canvas.create_line(x1, y1, x2, y2, fill='lightgrey', width=1.5)
+                    self.edge_items[(i, j)] = edge
+
+        node_radius = 12
+        for i in range(N):
+            x, y = self.node_coords[i]
+            node_tag = f"node_{i}"
+            oval = self.graph_canvas.create_oval(
+                x - node_radius, y - node_radius, x + node_radius, y + node_radius,
+                fill='skyblue', outline='black', width=1.5, tags=node_tag
+            )
+            self.graph_canvas.create_text(x, y, text=str(i), font=("Arial", 8, "bold"), tags=node_tag)
+            self.node_items[i] = oval
+            self.graph_canvas.tag_bind(node_tag, '<Enter>', lambda e, node_id=i: self._on_node_enter(node_id))
+            self.graph_canvas.tag_bind(node_tag, '<Leave>', self._on_node_leave)
+
+    # --- NOVA FUNÇÃO ---
+    def _update_graph_node_colors(self):
+        """Atualiza a cor dos nós do grafo com base em seu estado ativo."""
+        for i in self.node_items:
+            node_item = self.node_items[i]
+            if self.active_nodes[i].get():
+                self.graph_canvas.itemconfig(node_item, fill='skyblue', outline='black')
+            else:
+                self.graph_canvas.itemconfig(node_item, fill='grey', outline='darkgrey')
+
+    def _on_node_enter(self, node_id):
+        # --- MODIFICAÇÃO ---
+        # Não fazer nada se o nó estiver inativo
+        if not self.active_nodes[node_id].get():
+            return
+
+        for i in self.node_items:
+            self.graph_canvas.itemconfig(self.node_items[i], fill='#f0f0f0', outline='lightgrey')
+        for edge in self.edge_items.values():
+            self.graph_canvas.itemconfig(edge, fill='#f0f0f0')
+
+        self.graph_canvas.itemconfig(self.node_items[node_id], fill='royalblue')
+
+        for neighbor_id in range(N):
+            if self.adjacency_matrix[node_id][neighbor_id] == 1 and node_id != neighbor_id:
+                edge_key = tuple(sorted((node_id, neighbor_id)))
+                if edge_key in self.edge_items:
+                    self.graph_canvas.itemconfig(self.edge_items[edge_key], fill='red', width=2.5)
+                
+                self.graph_canvas.itemconfig(self.node_items[neighbor_id], fill='lightgreen')
+                
+    def _on_node_leave(self, event):
+        # --- MODIFICAÇÃO ---
+        # Restaura a aparência padrão de todos os elementos
+        for edge in self.edge_items.values():
+            self.graph_canvas.itemconfig(edge, fill='lightgrey', width=1.5)
+        # Restaura as cores corretas dos nós (ativos/inativos)
+        self._update_graph_node_colors()
 
     def on_slider_change(self, val):
         generation_idx = int(val)
@@ -322,10 +430,13 @@ class GeneticAlgoAnalyzer(tk.Tk):
 def main():
     generations, global_fitness, generational_fitness, genes_history = load_history_data()
     min_matrix, max_matrix = load_tester_matrices()
-    if not generations:
-        print("Não foi possível carregar os dados do histórico. Encerrando.")
+    b_vector = load_b_vector()
+
+    if not generations or not b_vector:
+        print("Não foi possível carregar todos os dados necessários. Encerrando.")
         return
-    app = GeneticAlgoAnalyzer(generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix)
+        
+    app = GeneticAlgoAnalyzer(generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix, b_vector)
     app.mainloop()
 
 if __name__ == '__main__':

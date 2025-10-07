@@ -10,7 +10,7 @@
 #define MU_TAX_BASE 0.05
 #define TOURNAMENT_SIZE 10
 
-// MODIFICAÇÃO: O número de matrizes de avaliação agora corresponde ao número de testers pré-definidos.
+// O número de matrizes de avaliação agora corresponde ao número de testers pré-definidos.
 #define EVAL_MATRICES 2
 #define EVAL_LOOPS 10
 
@@ -92,8 +92,7 @@ static int max_matrix[N][N] = {
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,80,100}
 };
 
-// MODIFICAÇÃO: Defina suas matrizes de teste aqui.
-// Você pode adicionar mais matrizes, apenas lembre-se de ajustar EVAL_MATRICES.
+// Defina suas matrizes de teste aqui.
 static double predefined_testers[EVAL_MATRICES][N][N] = {
     // Tester 1: Valores médios (exemplo)
     {
@@ -147,6 +146,22 @@ static double predefined_testers[EVAL_MATRICES][N][N] = {
 static double b_vector[N] = {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100};
 
 static HistoryEntry history[GEN];
+
+// *** NOVA FUNÇÃO ADICIONADA ***
+void save_b_vector() {
+    FILE *f = fopen("b_vector.csv", "w");
+    if (!f) {
+        perror("Erro ao abrir b_vector.csv");
+        return;
+    }
+
+    fprintf(f, "index,value\n");
+
+    for (int i = 0; i < N; ++i) {
+        fprintf(f, "%d,%.1f\n", i, b_vector[i]);
+    }
+    fclose(f);
+}
 
 int solve_linear_fallback(const double A_in[N][N], const double b_in[N], double x_out[N]) {
     double aug[N][N+1];
@@ -259,9 +274,13 @@ int main(void) {
     double mu = MU_TAX_BASE;
     int gens_no_improve = 0;
 
-    // MODIFICAÇÃO: Copia os testers pré-definidos para a matriz de avaliação.
+    // Copia os testers pré-definidos para a matriz de avaliação.
     memcpy(evaluation_matrices, predefined_testers, sizeof(predefined_testers));
     printf("%d testers pre-definidos foram carregados.\n", EVAL_MATRICES);
+
+    // *** CHAMADA DA NOVA FUNÇÃO ***
+    save_b_vector();
+    printf("Vetor B salvo em 'b_vector.csv'\n");
     
     copy_positions(initial_positions, population[0]);
     for (int i=1;i<POP_SIZE;++i) randomize(population[i]);
@@ -276,7 +295,7 @@ int main(void) {
     clock_t start_time = clock();
 
     for (int gen=0; gen<GEN; ++gen) {
-        // MODIFICAÇÃO: Bloco de regeneração de testers foi removido.
+        // Bloco de regeneração de testers foi removido.
 
         #pragma omp parallel for if(POP_SIZE>1)
         for (int i=0;i<POP_SIZE;++i) fitnesses[i] = fitness(population[i], evaluation_matrices, EVAL_MATRICES, EVAL_LOOPS);

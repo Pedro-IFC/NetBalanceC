@@ -6,13 +6,13 @@
 
 #define N 20
 #define POP_SIZE 50
-#define GEN 1000
-#define MU_TAX_BASE 0.05
-#define TOURNAMENT_SIZE 10
+#define GEN 50000
+#define MU_TAX_BASE 0.25
+#define TOURNAMENT_SIZE 25
 
-#define EVAL_MATRICES 10
-#define EVAL_LOOPS 10
-#define REGEN_INTERVAL 500
+#define EVAL_MATRICES 50
+#define EVAL_LOOPS 50
+#define REGEN_INTERVAL 2000
 
 typedef int mati[N][N];
 typedef double matd[N][N];
@@ -24,26 +24,26 @@ typedef struct {
 } HistoryEntry;
 
 static int initial_positions[N][N] = {
-    {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1}
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 };
 
 static int min_matrix[N][N] = {
@@ -102,9 +102,7 @@ void save_tester_config() {
         perror("Erro ao abrir tester.csv");
         return;
     }
-
     fprintf(f, "i,j,min_value,max_value\n");
-
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
             fprintf(f, "%d,%d,%d,%d\n", i, j, min_matrix[i][j], max_matrix[i][j]);
@@ -113,6 +111,43 @@ void save_tester_config() {
     fclose(f);
 }
 
+void save_b_vector() {
+    FILE *f = fopen("b_vector.csv", "w");
+    if (!f) {
+        perror("Erro ao abrir b_vector.csv");
+        return;
+    }
+    fprintf(f, "index,value\n");
+    for (int i = 0; i < N; ++i) {
+        fprintf(f, "%d,%.1f\n", i, b_vector[i]);
+    }
+    fclose(f);
+}
+
+// *** NOVA FUNÇÃO PARA SALVAR OS VALORES EXATOS DOS TESTERS ***
+void save_evaluation_matrices(int generation, const double evaluation_matrices[EVAL_MATRICES][N][N]) {
+    char filename[100];
+    sprintf(filename, "testers_gen_%d.csv", generation);
+
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        perror("Erro ao abrir arquivo de testers");
+        return;
+    }
+
+    fprintf(f, "tester_index,i,j,value\n");
+
+    for (int t = 0; t < EVAL_MATRICES; ++t) {
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                fprintf(f, "%d,%d,%d,%.2f\n", t, i, j, evaluation_matrices[t][i][j]);
+            }
+        }
+    }
+
+    fclose(f);
+    printf("Matrizes de teste da geração %d salvas em '%s'\n", generation, filename);
+}
 
 int solve_linear_fallback(const double A_in[N][N], const double b_in[N], double x_out[N]) {
     double aug[N][N+1];
@@ -239,9 +274,14 @@ int main(void) {
 
     for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
     
-    // MODIFICAÇÃO: Salva a configuração inicial dos testers
+    // *** MODIFICAÇÃO: Salva o conjunto inicial de testers (geração 0) ***
+    save_evaluation_matrices(0, evaluation_matrices);
+    
     save_tester_config();
     printf("Configuração inicial dos testers salva em 'tester.csv'\n");
+    
+    save_b_vector();
+    printf("Vetor B salvo em 'b_vector.csv'\n");
 
     copy_positions(initial_positions, population[0]);
     for (int i=1;i<POP_SIZE;++i) randomize(population[i]);
@@ -260,9 +300,8 @@ int main(void) {
             for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
             printf("[geracao %d] Regeneradas %d evaluation_matrices\n", gen, EVAL_MATRICES);
             
-            // MODIFICAÇÃO: Salva a configuração dos testers novamente
-            save_tester_config();
-            printf("[geracao %d] Configuração dos testers salva novamente em 'tester.csv'\n", gen);
+            // *** MODIFICAÇÃO: Salva o novo conjunto de testers regenerados ***
+            save_evaluation_matrices(gen, evaluation_matrices);
         }
 
         #pragma omp parallel for if(POP_SIZE>1)
@@ -335,7 +374,6 @@ int main(void) {
         return 1;
     }
     
-    // Escreve o cabeçalho
     fprintf(f, "Generation,GlobalBestFitness,GenerationBestFitness");
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -344,7 +382,6 @@ int main(void) {
     }
     fprintf(f, "\n");
 
-    // Escreve o estado inicial (Geração 0)
     fprintf(f, "0,%f,%f", fit0, fit0);
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -353,7 +390,6 @@ int main(void) {
     }
     fprintf(f, "\n");
 
-    // Escreve os dados de cada geração da simulação (a partir da Geração 1)
     for (int gen = 0; gen < GEN; ++gen) {
         fprintf(f, "%d,%f,%f", gen + 1, history[gen].global_best_fit, history[gen].generation_best_fit);
         for (int i = 0; i < N; ++i) {
