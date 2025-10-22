@@ -6,7 +6,7 @@ import csv
 import numpy as np
 import random
 
-N = 20
+N = 5
 
 def generate_tester(min_matrix, max_matrix):
     """
