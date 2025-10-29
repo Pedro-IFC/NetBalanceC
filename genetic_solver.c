@@ -4,15 +4,15 @@
 #include <time.h>
 #include <math.h>
 
-#define N 5
-#define POP_SIZE 10
+#define N 20
+#define POP_SIZE 50
 #define GEN 10000
-#define MU_TAX_BASE 0.005
-#define TOURNAMENT_SIZE 5
+#define MU_TAX_BASE 0.2
+#define TOURNAMENT_SIZE 50
 
-#define EVAL_MATRICES 30
-#define EVAL_LOOPS 30
-#define REGEN_INTERVAL 1000
+#define EVAL_MATRICES 50
+#define EVAL_LOOPS 50
+#define REGEN_INTERVAL 100
 
 typedef int mati[N][N];
 typedef double matd[N][N];
@@ -23,31 +23,87 @@ typedef struct {
     mati genes;
 } HistoryEntry;
 
-static int initial_positions[N][N] = {
-    {1,1,0,0,0},
-    {1,1,1,0,0},
-    {0,1,1,1,0},
-    {0,0,1,1,1},
-    {0,0,0,1,1}
-};
-
 static int min_matrix[N][N] = {
-    {100,30,30,30,30},
-    {30,100,30,30,30},
-    {30,30,100,30,30},
-    {30,30,30,100,30},
-    {30,30,30,30,100}
+    {100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,100,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,100,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,100,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,100,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,100,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,100,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,100,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,100,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,100,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,100,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,100,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,100,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,100,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,100}
 };
 
 static int max_matrix[N][N] = {
-    {100,80,80,80,80},
-    {80,100,80,80,80},
-    {80,80,100,80,80},
-    {80,80,80,100,80},
-    {80,80,80,80,100}
+    {100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100,80},
+    {80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,100}
 };
 
-static double b_vector[N] = {100, 80, 60, 40, 20};
+static int initial_positions[N][N] = {
+    {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1},
+    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1}
+};
+
+static int max_connections_per_node[N] = {
+    1, 5, 3, 2, 1, 
+    1, 5, 3, 2, 1, 
+    1, 5, 3, 2, 1, 
+    1, 5, 3, 2, 1
+};
+static double b_vector[N] = {
+    100, 20, 60, 40, 80, 
+    100, 20, 60, 40, 80, 
+    100, 20, 60, 40, 80, 
+    100, 20, 60, 40, 80
+};
 
 static HistoryEntry history[GEN];
 
@@ -77,31 +133,6 @@ void save_b_vector() {
         fprintf(f, "%d,%.1f\n", i, b_vector[i]);
     }
     fclose(f);
-}
-
-// *** NOVA FUNÇÃO PARA SALVAR OS VALORES EXATOS DOS TESTERS ***
-void save_evaluation_matrices(int generation, const double evaluation_matrices[EVAL_MATRICES][N][N]) {
-    char filename[100];
-    sprintf(filename, "testers_gen_%d.csv", generation);
-
-    FILE *f = fopen(filename, "w");
-    if (!f) {
-        perror("Erro ao abrir arquivo de testers");
-        return;
-    }
-
-    fprintf(f, "tester_index,i,j,value\n");
-
-    for (int t = 0; t < EVAL_MATRICES; ++t) {
-        for (int i = 0; i < N; ++i) {
-            for (int j = 0; j < N; ++j) {
-                fprintf(f, "%d,%d,%d,%.2f\n", t, i, j, evaluation_matrices[t][i][j]);
-            }
-        }
-    }
-
-    fclose(f);
-    printf("Matrizes de teste da geração %d salvas em '%s'\n", generation, filename);
 }
 
 int solve_linear_fallback(const double A_in[N][N], const double b_in[N], double x_out[N]) {
@@ -152,6 +183,60 @@ void generate_tester(double tester[N][N]) {
         tester[i][j] = tester[j][i] = (double)v;
     }
 }
+int count_node_connections(const int p[N][N], int node_i) {
+    int count = 0;
+    for (int j = 0; j < N; ++j) {
+        if (node_i != j && p[node_i][j] == 1) {
+            count++;
+        }
+    }
+    return count;
+}
+void enforce_connection_limits(int p[N][N], const int max_limits[N]) {
+    int j_candidates[N]; 
+    for (int i = 0; i < N; ++i) {
+        for (int j = i + 1; j < N; ++j) {
+            if (min_matrix[i][j] == max_matrix[i][j] && max_matrix[i][j] > 0) {
+                p[i][j] = 1;
+                p[j][i] = 1;
+            }
+            else if (max_matrix[i][j] == 0) {
+                p[i][j] = 0;
+                p[j][i] = 0;
+            }
+        }
+    }
+    for (int i = 0; i < N; ++i) {
+        int current_conns = count_node_connections(p, i);
+        int excess = current_conns - max_limits[i];
+
+        if (excess <= 0) {
+            continue;
+        }
+
+        int num_candidates = 0;
+        for (int j = 0; j < N; ++j) {
+            if (i != j && p[i][j] == 1 && (min_matrix[i][j] != max_matrix[i][j] || max_matrix[i][j] == 0)) {
+                 j_candidates[num_candidates++] = j;
+            }
+        }
+
+        for (int k = 0; k < excess; ++k) {
+            if (num_candidates == 0) {
+                break;
+            }
+
+            int rand_idx = rand() % num_candidates;
+            int j_to_remove = j_candidates[rand_idx];
+
+            p[i][j_to_remove] = 0;
+            p[j_to_remove][i] = 0;
+
+            j_candidates[rand_idx] = j_candidates[num_candidates - 1];
+            num_candidates--;
+        }
+    }
+}
 
 double fitness(const int positions[N][N], double testers[][N][N], int num_testers, int loops) {
     double final_point = 0.0;
@@ -174,26 +259,22 @@ void randomize(int p[N][N]) {
         int v = rand() & 1;
         if(max_matrix[i][j] == 0){
             v = 0;
-        }else if(min_matrix[i][j] == max_matrix[i][j]){
-            v = 1;
         }
         p[i][j] = p[j][i] = v;
     }
+    enforce_connection_limits(p, max_connections_per_node);
 }
 
 void mutate(const int src[N][N], int dst[N][N], double mu) {
     copy_positions(src, dst);
     for (int i=0; i<N; ++i) {
         for (int j=i+1; j<N; ++j) {
-            if(max_matrix[i][j] == 0){
-                dst[i][j] = dst[j][i] = 0;
-            }else if(min_matrix[i][j] == max_matrix[i][j]){
-                dst[i][j] = dst[j][i] = 1;
-            }else if (drand_3_casas() < mu) {
+            if(max_matrix[i][j] > 0 && drand_3_casas() < mu) {
                 dst[i][j] = dst[j][i] = 1 - dst[i][j];
             }
         }
     }
+    enforce_connection_limits(dst, max_connections_per_node);
 }
 
 void cross(const int p1[N][N], const int p2[N][N], int dst[N][N]) {
@@ -205,6 +286,8 @@ void cross(const int p1[N][N], const int p2[N][N], int dst[N][N]) {
             }
         }
     }
+
+    enforce_connection_limits(dst, max_connections_per_node);
 }
 
 int select_parent(int pop, const double fitnesses[POP_SIZE], int exclude) {
@@ -222,6 +305,31 @@ int select_parent(int pop, const double fitnesses[POP_SIZE], int exclude) {
 int main(void) {
     srand((unsigned)time(NULL));
 
+    static int min_connections_per_node[N] = {0};
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (i != j && max_matrix[i][j] > 0 && min_matrix[i][j] > 0) {
+                min_connections_per_node[i]++;
+            }
+        }
+    }
+    
+    printf("Verificando consistência dos limites Mín/Máx...\n");
+    int has_conflict = 0;
+    for (int i = 0; i < N; ++i) {
+        if (min_connections_per_node[i] > max_connections_per_node[i]) {
+            fprintf(stderr, "ERRO: Problema insolúvel detectado.\n");
+            fprintf(stderr, "Conflito no Nó %d: Mínimo de conexões obrigatórias (%d) é maior que o máximo permitido (%d).\n",
+                   i, min_connections_per_node[i], max_connections_per_node[i]);
+            has_conflict = 1; 
+        }
+    }
+
+    if(has_conflict) {
+        return 1;
+    }
+    printf("Verificação OK. Nenhum conflito Mín/Máx encontrado.\n\n");
+
     static int population[POP_SIZE][N][N];
     static int new_pop[POP_SIZE][N][N];
     static double fitnesses[POP_SIZE];
@@ -232,9 +340,6 @@ int main(void) {
 
     for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
     
-    // *** MODIFICAÇÃO: Salva o conjunto inicial de testers (geração 0) ***
-    save_evaluation_matrices(0, evaluation_matrices);
-    
     save_tester_config();
     printf("Configuração inicial dos testers salva em 'tester.csv'\n");
     
@@ -242,14 +347,17 @@ int main(void) {
     printf("Vetor B salvo em 'b_vector.csv'\n");
 
     copy_positions(initial_positions, population[0]);
+    enforce_connection_limits(population[0], max_connections_per_node);
+
+
     for (int i=1;i<POP_SIZE;++i) randomize(population[i]);
 
-    double fit0 = fitness(initial_positions, evaluation_matrices, EVAL_MATRICES, EVAL_LOOPS);
-    printf("Fitness inicial: %f\n", fit0);
+    double fit0 = fitness(population[0], evaluation_matrices, EVAL_MATRICES, EVAL_LOOPS);
+    printf("Fitness inicial (após possível reparo): %f\n", fit0);
 
     double best_fit_global = fit0;
     int best_positions[N][N];
-    copy_positions(initial_positions, best_positions);
+    copy_positions(population[0], best_positions);
 
     clock_t start_time = clock();
 
@@ -257,9 +365,6 @@ int main(void) {
         if (gen > 0 && (gen % REGEN_INTERVAL) == 0) {
             for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
             printf("[geracao %d] Regeneradas %d evaluation_matrices\n", gen, EVAL_MATRICES);
-            
-            // *** MODIFICAÇÃO: Salva o novo conjunto de testers regenerados ***
-            save_evaluation_matrices(gen, evaluation_matrices);
         }
 
         #pragma omp parallel for if(POP_SIZE>1)
@@ -289,7 +394,7 @@ int main(void) {
             int p2 = select_parent(POP_SIZE, fitnesses, p1);
 
             int child[N][N];
-            cross(population[p1], population[p2], child);
+            cross(population[p1], population[p2], child); 
 
             int mutated[N][N];
             mutate(child, mutated, mu);
@@ -340,10 +445,10 @@ int main(void) {
     }
     fprintf(f, "\n");
 
-    fprintf(f, "0,%f,%f", fit0, fit0);
+    fprintf(f, "0,%f,%f", fit0, fit0); 
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            fprintf(f, ",%d", initial_positions[i][j]);
+            fprintf(f, ",%d", population[0][i][j]);
         }
     }
     fprintf(f, "\n");

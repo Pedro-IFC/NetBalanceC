@@ -6,7 +6,7 @@ import csv
 import numpy as np
 import random
 
-N = 5
+N = 20
 
 def generate_tester(min_matrix, max_matrix):
     """
@@ -82,7 +82,7 @@ class GeneticAlgoAnalyzer(tk.Tk):
     def __init__(self, generations, global_fitness, generational_fitness, genes_history, min_matrix, max_matrix, b_vector):
         super().__init__()
         self.title("Análise de Algoritmo Genético")
-        self.state('zoomed')
+        self.state('normal')
 
         self.generations = generations
         self.global_fitness = global_fitness
