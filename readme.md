@@ -12,7 +12,19 @@ Este projeto utiliza bibliotecas científicas do Python para análises numérica
 
 Clone o repositório (ou navegue até a pasta do projeto) e siga os passos:
 
-### 1. Crie e ative um ambiente virtual (opcional, mas recomendado):
+### 1. Compile o projeto com os dados desejados:
+
+```bash
+gcc -o genetic_solver genetic_solver.c
+```
+
+### 2. Execute o algoritmo genético de otimização:
+
+```bash
+./genetic_solver 
+```
+
+### 3. Crie e ative um ambiente virtual (opcional, mas recomendado):
 
 ```bash
 python -m venv venv
@@ -20,14 +32,14 @@ source venv/bin/activate  # Linux/macOS
 venv\Scripts\activate     # Windows
 ```
 
-### 2. Instale as dependências:
+### 4. Instale as dependências:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Inicie o JupyterLab:
+### 5. Inicie o ambiente gráfico:
 ```bash
-jupyter lab
+python ./graph.py
 ```
 
 O navegador será aberto automaticamente com a interface do JupyterLab, onde você poderá rodar os notebooks .ipynb do projeto.

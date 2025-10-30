@@ -36,3 +36,5 @@ dist/
 *.local
 .csv
 .exe
+
+.csv

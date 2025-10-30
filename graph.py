@@ -9,13 +9,9 @@ import random
 N = 20
 
 def generate_tester(min_matrix, max_matrix):
-    """
-    Gera uma matriz de teste com base nos valores mínimos e máximos.
-    Esta função simula a lógica do código C original.
-    """
     tester = [[0.0] * N for _ in range(N)]
     for i in range(N):
-        for j in range(i, N): # Itera na triangular superior
+        for j in range(i, N):
             min_val = int(min_matrix[i][j])
             max_val = int(max_matrix[i][j])
             v = 0.0
@@ -23,7 +19,7 @@ def generate_tester(min_matrix, max_matrix):
                 steps = (max_val - min_val) // 10 + 1
                 v = float(min_val + 10 * random.randint(0, steps - 1))
             tester[i][j] = v
-            tester[j][i] = v # Garante simetria
+            tester[j][i] = v 
     return tester
 
 def load_history_data(filepath="history_advanced.csv"):
@@ -60,10 +56,6 @@ def load_tester_matrices(filepath="tester.csv"):
     return min_matrix, max_matrix
 
 def load_b_vector(filepath="b_vector.csv"):
-    """
-    Carrega o vetor B de um arquivo CSV.
-    Espera-se que o CSV tenha uma coluna chamada 'value'.
-    """
     b_vector = []
     try:
         with open(filepath, newline='', encoding="utf-8") as csvfile:
@@ -262,13 +254,11 @@ class GeneticAlgoAnalyzer(tk.Tk):
                 A_sim[i, :] = 0.0
                 A_sim[:, i] = 0.0
                 b_sim[i] = 0.0
-                A_sim[i][i] = 1 # Evita singularidade de forma simples
+                A_sim[i][i] = 1
         
         fitness_score = self.calculate_fitness_py(A_sim, b_sim)
         self.simulation_fitness_label.config(text=f"Fitness Simulado: {fitness_score:.4f}")
 
-        # --- MODIFICAÇÃO ---
-        # Atualiza as cores do grafo para refletir os nós ativos/inativos
         self._update_graph_node_colors()
 
     def _calculate_solution(self, generation_index):
@@ -373,7 +363,6 @@ class GeneticAlgoAnalyzer(tk.Tk):
             self.graph_canvas.tag_bind(node_tag, '<Enter>', lambda e, node_id=i: self._on_node_enter(node_id))
             self.graph_canvas.tag_bind(node_tag, '<Leave>', self._on_node_leave)
 
-    # --- NOVA FUNÇÃO ---
     def _update_graph_node_colors(self):
         """Atualiza a cor dos nós do grafo com base em seu estado ativo."""
         for i in self.node_items:
@@ -384,8 +373,6 @@ class GeneticAlgoAnalyzer(tk.Tk):
                 self.graph_canvas.itemconfig(node_item, fill='grey', outline='darkgrey')
 
     def _on_node_enter(self, node_id):
-        # --- MODIFICAÇÃO ---
-        # Não fazer nada se o nó estiver inativo
         if not self.active_nodes[node_id].get():
             return
 
@@ -405,11 +392,8 @@ class GeneticAlgoAnalyzer(tk.Tk):
                 self.graph_canvas.itemconfig(self.node_items[neighbor_id], fill='lightgreen')
                 
     def _on_node_leave(self, event):
-        # --- MODIFICAÇÃO ---
-        # Restaura a aparência padrão de todos os elementos
         for edge in self.edge_items.values():
             self.graph_canvas.itemconfig(edge, fill='lightgrey', width=1.5)
-        # Restaura as cores corretas dos nós (ativos/inativos)
         self._update_graph_node_colors()
 
     def on_slider_change(self, val):
