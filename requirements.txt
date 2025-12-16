@@ -1,2 +1,7 @@
 matplotlib
 networkx
+jupyterlab
+pandas
+scikit-learn
+xgboost
+numpy

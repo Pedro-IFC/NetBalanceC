@@ -22,7 +22,7 @@ def generate_tester(min_matrix, max_matrix):
             tester[j][i] = v 
     return tester
 
-def load_history_data(filepath="history_advanced.csv"):
+def load_history_data(filepath="history_advanced_best_of_gen.csv"):
     generations, global_fitness, generational_fitness, genes_history = [], [], [], []
     try:
         with open(filepath, newline='', encoding="utf-8") as csvfile:

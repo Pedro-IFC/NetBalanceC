@@ -5,23 +5,17 @@
 #include <math.h>
 
 #define N 20
-#define POP_SIZE 50
+#define POP_SIZE 100
 #define GEN 10000
-#define MU_TAX_BASE 0.2
-#define TOURNAMENT_SIZE 50
+#define MU_TAX_BASE 0.01
+#define TOURNAMENT_SIZE 500
 
-#define EVAL_MATRICES 50
-#define EVAL_LOOPS 50
-#define REGEN_INTERVAL 100
+#define EVAL_MATRICES 100
+#define EVAL_LOOPS 100
+#define REGEN_INTERVAL 10
 
 typedef int mati[N][N];
 typedef double matd[N][N];
-
-typedef struct {
-    double global_best_fit;
-    double generation_best_fit;
-    mati genes;
-} HistoryEntry;
 
 static int min_matrix[N][N] = {
     {100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -105,7 +99,7 @@ static double b_vector[N] = {
     100, 20, 60, 40, 80
 };
 
-static HistoryEntry history[GEN];
+// static HistoryEntry history[GEN]; // REMOVIDO: Estrutura antiga
 
 void save_tester_config() {
     FILE *f = fopen("tester.csv", "w");
@@ -302,6 +296,29 @@ int select_parent(int pop, const double fitnesses[POP_SIZE], int exclude) {
     return best_idx;
 }
 
+void save_complete_history_header(FILE *f) {
+    fprintf(f, "Generation,Individual_ID,Fitness");
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            fprintf(f, ",Gene_%d_%d", i, j);
+        }
+    }
+    fprintf(f, "\n");
+}
+
+// **NOVA FUNÇÃO: Anexa os dados de toda a população de uma geração ao histórico completo**
+void append_complete_history_generation(FILE *f, int gen, const int population[POP_SIZE][N][N], const double fitnesses[POP_SIZE]) {
+    for (int k = 0; k < POP_SIZE; ++k) {
+        fprintf(f, "%d,%d,%f", gen, k, fitnesses[k]);
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                fprintf(f, ",%d", population[k][i][j]);
+            }
+        }
+        fprintf(f, "\n");
+    }
+}
+
 int main(void) {
     srand((unsigned)time(NULL));
 
@@ -346,23 +363,63 @@ int main(void) {
     save_b_vector();
     printf("Vetor B salvo em 'b_vector.csv'\n");
 
+    // Prepara o arquivo de histórico completo
+    FILE *f_complete = fopen("history_advanced_complete.csv", "w");
+    if (!f_complete) {
+        perror("Erro ao abrir history_advanced_complete.csv");
+        return 1;
+    }
+    save_complete_history_header(f_complete);
+
+    // Inicialização da População
     copy_positions(initial_positions, population[0]);
     enforce_connection_limits(population[0], max_connections_per_node);
-
-
     for (int i=1;i<POP_SIZE;++i) randomize(population[i]);
 
-    double fit0 = fitness(population[0], evaluation_matrices, EVAL_MATRICES, EVAL_LOOPS);
-    printf("Fitness inicial (após possível reparo): %f\n", fit0);
+    // Avaliação da Geração 0
+    #pragma omp parallel for if(POP_SIZE>1)
+    for (int i=0;i<POP_SIZE;++i) fitnesses[i] = fitness(population[i], evaluation_matrices, EVAL_MATRICES, EVAL_LOOPS);
+    
+    append_complete_history_generation(f_complete, 0, population, fitnesses);
 
-    double best_fit_global = fit0;
+    int curr_best_idx_gen0 = 0;
+    for (int i=1;i<POP_SIZE;++i) if (fitnesses[i] > fitnesses[curr_best_idx_gen0]) curr_best_idx_gen0 = i;
+    double best_fit_global = fitnesses[curr_best_idx_gen0];
     int best_positions[N][N];
-    copy_positions(population[0], best_positions);
+    copy_positions(population[curr_best_idx_gen0], best_positions);
+    
+    printf("Fitness inicial (após possível reparo): %f\n", best_fit_global);
+
+
+    // Arquivo para o histórico do "melhor geracional" (mantendo a funcionalidade original para comparação)
+    FILE *f_best = fopen("history_advanced_best_of_gen.csv","w");
+    if (!f_best) {
+        perror("Erro ao abrir history_advanced_best_of_gen.csv");
+        fclose(f_complete);
+        return 1;
+    }
+    fprintf(f_best, "Generation,GlobalBestFitness,GenerationBestFitness");
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            fprintf(f_best, ",Gene_%d_%d", i, j);
+        }
+    }
+    fprintf(f_best, "\n");
+    
+    fprintf(f_best, "0,%f,%f", best_fit_global, best_fit_global); 
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            fprintf(f_best, ",%d", best_positions[i][j]);
+        }
+    }
+    fprintf(f_best, "\n");
+    
 
     clock_t start_time = clock();
 
-    for (int gen=0; gen<GEN; ++gen) {
-        if (gen > 0 && (gen % REGEN_INTERVAL) == 0) {
+    // Loop do Algoritmo Genético
+    for (int gen=1; gen<=GEN; ++gen) { // gen começa em 1 para coincidir com o "Generation"
+        if ((gen % REGEN_INTERVAL) == 0) {
             for (int t=0;t<EVAL_MATRICES;++t) generate_tester(evaluation_matrices[t]);
             printf("[geracao %d] Regeneradas %d evaluation_matrices\n", gen, EVAL_MATRICES);
         }
@@ -384,9 +441,17 @@ int main(void) {
             if (gens_no_improve % 50 == 0) mu += 0.025;
         }
 
-        history[gen].global_best_fit = best_fit_global;
-        history[gen].generation_best_fit = best_fit_generation;
-        copy_positions(population[curr_best_idx], history[gen].genes);
+        // **NOVA CHAMADA: Salva todos os indivíduos desta geração no histórico completo**
+        append_complete_history_generation(f_complete, gen, population, fitnesses);
+
+        // **ESCREVE NO NOVO ARQUIVO DE "MELHOR GERACIONAL"**
+        fprintf(f_best, "%d,%f,%f", gen, best_fit_global, best_fit_generation);
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                fprintf(f_best, ",%d", population[curr_best_idx][i][j]);
+            }
+        }
+        fprintf(f_best, "\n");
 
         int cnt = 0, attempts = 0;
         while (cnt < POP_SIZE && attempts < 10 * POP_SIZE) {
@@ -420,6 +485,10 @@ int main(void) {
         }
     }
 
+    // Fechamento dos arquivos
+    fclose(f_complete);
+    fclose(f_best);
+
     clock_t end_time = clock();
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
@@ -431,39 +500,9 @@ int main(void) {
     }
     printf("Tempo total de execução: %.3f segundos\n", elapsed_time);
 
-    FILE *f = fopen("history_advanced.csv","w");
-    if (!f) {
-        perror("Erro ao abrir arquivo");
-        return 1;
-    }
-    
-    fprintf(f, "Generation,GlobalBestFitness,GenerationBestFitness");
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            fprintf(f, ",Gene_%d_%d", i, j);
-        }
-    }
-    fprintf(f, "\n");
-
-    fprintf(f, "0,%f,%f", fit0, fit0); 
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            fprintf(f, ",%d", population[0][i][j]);
-        }
-    }
-    fprintf(f, "\n");
-
-    for (int gen = 0; gen < GEN; ++gen) {
-        fprintf(f, "%d,%f,%f", gen + 1, history[gen].global_best_fit, history[gen].generation_best_fit);
-        for (int i = 0; i < N; ++i) {
-            for (int j = 0; j < N; ++j) {
-                fprintf(f, ",%d", history[gen].genes[i][j]);
-            }
-        }
-        fprintf(f, "\n");
-    }
-    fclose(f);
-    printf("\nHistórico avançado salvo em 'history_advanced.csv'\n");
+    // Mensagens de saída atualizadas
+    printf("\nHistórico completo (todos os indivíduos) salvo em 'history_advanced_complete.csv'\n");
+    printf("Histórico de 'Melhor da Geração' salvo em 'history_advanced_best_of_gen.csv'\n");
 
     return 0;
 }
